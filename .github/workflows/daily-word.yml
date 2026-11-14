@@ -19,16 +19,31 @@ jobs:
   post:
     runs-on: ubuntu-latest
     steps:
+      # Hold scheduled posts until launch day (Dom, 14 Nov 2026). Manual runs always go.
+      - name: Gate
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%F)" \< "2026-11-17" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Holding until 2026-11-17"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
         with:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+        if: steps.gate.outputs.run == 'true'
       - run: pip install pillow
+        if: steps.gate.outputs.run == 'true'
       - name: Pick date
+        if: steps.gate.outputs.run == 'true'
         id: d
         run: echo "date=${{ github.event.inputs.date || '' }}" >> "$GITHUB_OUTPUT"
       - name: Render
+        if: steps.gate.outputs.run == 'true'
         working-directory: autopost
         env:
           APP_NAME: ${{ vars.APP_NAME }}
@@ -36,6 +51,7 @@ jobs:
           APP_HANDLE: ${{ vars.APP_HANDLE }}
         run: python generate.py ${{ steps.d.outputs.date && format('--date {0}', steps.d.outputs.date) || '' }}
       - name: Commit media
+        if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "daily-word-bot"
           git config user.email "actions@users.noreply.github.com"
@@ -43,6 +59,7 @@ jobs:
           git commit -m "Daily word media" || echo "nothing to commit"
           git push
       - name: Post
+        if: steps.gate.outputs.run == 'true'
         working-directory: autopost
         env:
           APP_LINK: ${{ vars.APP_LINK }}
