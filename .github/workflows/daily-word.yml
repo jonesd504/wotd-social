@@ -1,0 +1,65 @@
+# Runs every morning: render today's word, commit the media (so Threads/Instagram
+# can fetch it from a public URL), then post to every platform with secrets set.
+# Repo must be PUBLIC for raw.githubusercontent.com media URLs to work.
+name: Daily word post
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily; adjust to your audience's morning
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Override date (YYYY-MM-DD)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+      - run: pip install pillow
+      - name: Pick date
+        id: d
+        run: echo "date=${{ github.event.inputs.date || '' }}" >> "$GITHUB_OUTPUT"
+      - name: Render
+        working-directory: autopost
+        env:
+          APP_NAME: ${{ vars.APP_NAME }}
+          APP_CTA: ${{ vars.APP_CTA }}
+          APP_HANDLE: ${{ vars.APP_HANDLE }}
+        run: python generate.py ${{ steps.d.outputs.date && format('--date {0}', steps.d.outputs.date) || '' }}
+      - name: Commit media
+        run: |
+          git config user.name "daily-word-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add autopost/output
+          git commit -m "Daily word media" || echo "nothing to commit"
+          git push
+      - name: Post
+        working-directory: autopost
+        env:
+          APP_LINK: ${{ vars.APP_LINK }}
+          PUBLIC_BASE_URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/autopost/output
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          MASTODON_BASE_URL: ${{ secrets.MASTODON_BASE_URL }}
+          MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          PINTEREST_TOKEN: ${{ secrets.PINTEREST_TOKEN }}
+          PINTEREST_REFRESH_TOKEN: ${{ secrets.PINTEREST_REFRESH_TOKEN }}
+          PINTEREST_APP_ID: ${{ secrets.PINTEREST_APP_ID }}
+          PINTEREST_APP_SECRET: ${{ secrets.PINTEREST_APP_SECRET }}
+          PINTEREST_BOARD_ID: ${{ secrets.PINTEREST_BOARD_ID }}
+        run: python post.py ${{ steps.d.outputs.date && format('--date {0}', steps.d.outputs.date) || '' }}
