@@ -19,12 +19,13 @@ jobs:
   post:
     runs-on: ubuntu-latest
     steps:
-      # Hold scheduled posts until launch day (Dom, 14 Nov 2026). Manual runs always go.
+      # PAUSED: scheduled posts are off until the app launches (Dom, 16 Nov 2026).
+      # To restart, set the date below to the first posting day (YYYY-MM-DD). Manual runs always go.
       - name: Gate
         id: gate
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%F)" \< "2026-11-17" ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Holding until 2026-11-17"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%F)" \< "9999-12-31" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Paused until launch"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
